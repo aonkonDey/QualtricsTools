@@ -87,6 +87,28 @@ ask_for_csv <- function(responsesfile, headerrows) {
     responses[which(colnames(responses) == "")] <- NULL
     original_first_rows <- responses[1:(headerrows-1),]
 
+    #The way we check for data table is if the 'Response ID' is not in the first column
+    if(! 'ResponseID' %in% names(original_first_rows)[[1]]){
+      # We take out the column of responses
+      ResponseID<- purrr::pluck(responses, 'ResponseId')
+      # Delete that column
+      responses[which(colnames(responses) == "ResponseId")] <- NULL
+      # rearrage both responses and original_first_rows to have Response ID at the start
+      responses<- as.data.frame(c(as.data.frame(ResponseID), responses))
+      original_first_rows <- responses[1:(headerrows-1),]
+
+      # then we clean the ImportID and punctuation from the QID tags. And this needs to be done separately
+      # since the if condition below which cleans the tags for Legacy format doesn't work for data table, since
+      # the whole tag is different.
+
+      original_first_rows[2,] <- lapply(original_first_rows[2, ], function(x) {
+        x <- stringr::str_replace_all(x, "\\{\"ImportId\":\"", "" )
+        x <- stringr::str_replace_all(x, "\",\"choiceId\":\"", "-" )
+        x <- stringr::str_replace_all(x, "\"\\}", "" )
+        x <- stringr::str_replace_all(x, "_", "-" )
+      })
+    }
+
     if (headerrows == 3) {
       original_first_rows[2,] <- lapply(original_first_rows[2, ], function(x) {
         x <- gsub("^\\{'ImportId': '", "", x, perl=TRUE)
