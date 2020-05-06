@@ -341,6 +341,7 @@ get_setup <- function(qsf_path,
     }
     original_first_rows <- as.data.frame(responses[[2]])
     responses <- as.data.frame(responses[[1]])
+    export_type<- responses[[3]]
   }
 
   if (already_loaded == TRUE && sample_data == FALSE) {

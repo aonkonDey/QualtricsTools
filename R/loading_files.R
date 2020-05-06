@@ -80,48 +80,64 @@ ask_for_csv <- function(responsesfile, headerrows) {
         cat("Select CSV Response File:")
         responsesfile = file.choose()
     }
-    if (missing(headerrows)) {
-      headerrows <- 3
-    }
     responses = read.csv(responsesfile, check.names = FALSE, stringsAsFactors = FALSE)
     responses[which(colnames(responses) == "")] <- NULL
-    original_first_rows <- responses[1:(headerrows-1),]
 
-    #The way we check for data table is if the 'Response ID' is not in the first column
-    if(! 'ResponseID' %in% names(original_first_rows)[[1]]){
-      # We take out the column of responses
-      ResponseID<- purrr::pluck(responses, 'ResponseId')
-      # Delete that column
-      responses[which(colnames(responses) == "ResponseId")] <- NULL
-      # rearrage both responses and original_first_rows to have Response ID at the start
-      responses<- as.data.frame(c(as.data.frame(ResponseID), responses))
-      original_first_rows <- responses[1:(headerrows-1),]
+    organised_responses <- manage_export_type(responses)
+    export_type<- organised_responses[[1]]
+    original_first_rows<- organised_responses[[2]]
+    responses <- organised_responses[[3]]
 
-      # then we clean the ImportID and punctuation from the QID tags. And this needs to be done separately
-      # since the if condition below which cleans the tags for Legacy format doesn't work for data table, since
-      # the whole tag is different.
+    #aa<- list(responses, original_first_rows, export_type)
+    return(list(responses, original_first_rows, export_type))
+}
+#' Manages the different export formats
+#' Based on the selection for the three different formats: data table(dt, legacy unchecked legacy(lul)
+#' legacy checked legacy(lcl), we clean QIDs and rearrange columns where neccesay, and split the
+#' response data into two table: responses and original first rows.
+#' The function also returns the exfort format type.
+#'
 
-      original_first_rows[2,] <- lapply(original_first_rows[2, ], function(x) {
+manage_export_type<- function(responses){
+  # first we deal with legacy unchecked legacy and data table
+  if ('ResponseId' %in% names(responses) |'ResponseID' %in% names(responses)){
+    # if data table
+    if ('ResponseId' %in% names(responses)){
+      response_type <- 'dt'
+      # rearrange the table to have ResponseId at start
+      responses<- dplyr::select(responses, 'ResponseId', everything())%>%
+        rename('ResponseID'='ResponseId')
+      # clean the QIDs
+      responses[2,] <- lapply(responses[2, ], function(x) {
         x <- stringr::str_replace_all(x, "\\{\"ImportId\":\"", "" )
         x <- stringr::str_replace_all(x, "\",\"choiceId\":\"", "-" )
         x <- stringr::str_replace_all(x, "\"\\}", "" )
         x <- stringr::str_replace_all(x, "_", "-" )
       })
     }
-
-    if (headerrows == 3) {
-      original_first_rows[2,] <- lapply(original_first_rows[2, ], function(x) {
-        x <- gsub("^\\{'ImportId': '", "", x, perl=TRUE)
-        x <- gsub("'\\}$", "", x, perl=TRUE)
+    # if not data table, it's legacy unchecked legacy
+    else{
+      response_type <- 'lul'
+      # clean the QIDs
+      responses[2,] <- lapply(responses[2, ], function(x) {
+        x <- stringr::str_replace_all(x, "^\\{'ImportId': '", "" )
+        x <- stringr::str_replace_all(x, "'\\}$", "" )
       })
     }
-
-    responses <- responses[headerrows:nrow(responses),]
-    responses <- responses[apply(responses, 1, function(x) any(x != "")),]
-    responses <- as.data.frame(apply(responses, 2, trimws),stringsAsFactors = FALSE)
-    return(list(responses, original_first_rows))
+    # split by responses and original_first_rows
+    original_first_rows <- dplyr::filter(responses, ! stringr::str_detect(ResponseID, "^R_"))
+    responses<- dplyr::filter(responses, stringr::str_detect(ResponseID, "^R_"))
+  }
+  # if legacy checked legacy
+  else{
+    response_type <- 'lcl'
+    original_first_rows<- responses[1:1,]
+    responses <- responses[2:nrow(responses),]
+  }
+  responses <- responses[apply(responses, 1, function(x) any(x != "")),]
+  responses <- as.data.frame(apply(responses, 2, trimws),stringsAsFactors = FALSE)
+  return(list(response_type, original_first_rows, responses))
 }
-
 
 #' Validate Data Export Tag Uniqueness
 #'
