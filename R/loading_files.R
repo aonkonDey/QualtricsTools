@@ -82,22 +82,20 @@ ask_for_csv <- function(responsesfile, headerrows) {
     }
     responses = read.csv(responsesfile, check.names = FALSE, stringsAsFactors = FALSE)
     responses[which(colnames(responses) == "")] <- NULL
-
     organised_responses <- manage_export_type(responses)
     export_type<- organised_responses[[1]]
     original_first_rows<- organised_responses[[2]]
     responses <- organised_responses[[3]]
-
-    #aa<- list(responses, original_first_rows, export_type)
     return(list(responses, original_first_rows, export_type))
 }
-#' Manages the different export formats
+
+#' Manages the different export formats\
+#'
 #' Based on the selection for the three different formats: data table(dt, legacy unchecked legacy(lul)
 #' legacy checked legacy(lcl), we clean QIDs and rearrange columns where neccesay, and split the
 #' response data into two table: responses and original first rows.
 #' The function also returns the exfort format type.
 #'
-
 manage_export_type<- function(responses){
   # first we deal with legacy unchecked legacy and data table
   if ('ResponseId' %in% names(responses) |'ResponseID' %in% names(responses)){
